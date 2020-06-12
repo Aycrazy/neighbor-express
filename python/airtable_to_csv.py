@@ -4,6 +4,10 @@ from airtable import Airtable
 import os
 import re
 from datetime import timedelta
+import plotly.express as px
+import chart_studio.plotly as py
+import plotly.graph_objects as go
+#%%
 #Changing drive to where control file/parameters file is held
 #os.chdir(r'')
 
@@ -120,3 +124,19 @@ zip_delivery_timedelta = x[pd.notna(x.conversion_time)][['delivery_zip_code','co
 
 #average length in days to zip -- wonder how accurate submission time as delivery is
 zip_delivery_timedelta['days'] = zip_delivery_timedelta['timedelta_avg'].apply(lambda x: timedelta(seconds=x))
+
+fig_agency_bar_top5 = px.bar(agency_delivery_counts.sort_values('freq',ascending=False).head(), x='agencyname',y='freq')
+
+fig_agency_bar_top5.show()
+
+## Zip Units Bar
+
+data = go.Bar( x=zip_units.sort_values('total', ascending=False).head().zips, y=zip_units.sort_values('total', ascending=False).head().total)
+
+layout = go.Layout(xaxis=dict(type='category'))
+
+fig_zip_units_top5  = go.Figure(data=data, layout=layout)
+
+fig_zip_units_top5.show()
+
+### Map these things next
