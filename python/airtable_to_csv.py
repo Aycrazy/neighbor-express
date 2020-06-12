@@ -7,6 +7,7 @@ from datetime import timedelta
 import plotly.express as px
 import chart_studio.plotly as py
 import plotly.graph_objects as go
+import folium
 #%%
 #Changing drive to where control file/parameters file is held
 #os.chdir(r'')
@@ -140,3 +141,36 @@ fig_zip_units_top5  = go.Figure(data=data, layout=layout)
 fig_zip_units_top5.show()
 
 ### Map these things next
+zips = gpd.read_file('../zcta_zips/Zip_Code_Tabulation_Areas__ZCTA_.shp')
+
+zips['delivery_zip_code'] = zips.ZIPCODE
+
+zips.to_file("zips.geojson", driver='GeoJSON')
+
+milwaukee_coords = [43.03, -87.88]
+mke_zips = f'zips.geojson'
+#Create the map
+#my_map = folium.Map(location = milwaukee_coords, zoom_start = 11)
+
+#Display the map
+
+map_with_tiles = folium.Map(location = milwaukee_coords, tiles = 'Stamen Toner')
+
+choropleth = folium.Choropleth(
+    name='choropleth',
+    geo_data=zip_units,
+    data=mke_zips,
+    columns=['delivery_zip_code','total'],
+   #key_on="feature.properties.ZIPCODES",
+    fill_color='YlGn',
+    fill_opacity=0.7,
+    line_opacity=0.2,
+    legend_name='Total Units'
+).add_to(map_with_tiles)
+
+choropleth.geojson.add_child(
+    folium.features.GeoJsonTooltip(['delivery_zip_code','total'], labels=False)
+)
+
+#not appearing in vscode
+map_with_tiles
