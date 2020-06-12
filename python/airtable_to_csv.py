@@ -7,6 +7,9 @@ from datetime import timedelta
 import plotly.express as px
 import chart_studio.plotly as py
 import plotly.graph_objects as go
+import numpy as np
+from shapely.geometry import LineString, MultiLineString
+from plotly.express import choropleth_mapbox
 import folium
 #%%
 #Changing drive to where control file/parameters file is held
@@ -147,6 +150,12 @@ zips['delivery_zip_code'] = zips.ZIPCODE
 
 zips.to_file("zips.geojson", driver='GeoJSON')
 
+zips = zips.loc[1:zips.shape[0]-2]
+
+zips.ZIPCODE = zips.ZIPCODE.astype(int)
+
+
+
 milwaukee_coords = [43.03, -87.88]
 mke_zips = f'zips.geojson'
 #Create the map
@@ -154,23 +163,74 @@ mke_zips = f'zips.geojson'
 
 #Display the map
 
-map_with_tiles = folium.Map(location = milwaukee_coords, tiles = 'Stamen Toner')
+##function
+import numpy as np
 
-choropleth = folium.Choropleth(
-    name='choropleth',
-    geo_data=zip_units,
-    data=mke_zips,
-    columns=['delivery_zip_code','total'],
-   #key_on="feature.properties.ZIPCODES",
-    fill_color='YlGn',
-    fill_opacity=0.7,
-    line_opacity=0.2,
-    legend_name='Total Units'
-).add_to(map_with_tiles)
+from shapely.geometry import LineString, MultiLineString
 
-choropleth.geojson.add_child(
-    folium.features.GeoJsonTooltip(['delivery_zip_code','total'], labels=False)
-)
+#adapted from https://plotly.com/~empet/15238/tips-to-get-a-right-geojson-dict-to-defi/#/
+#%%
+def shapefile_to_geojson(gdf, index_list, level = 1, tolerance=0.025): 
+    # gdf - geopandas dataframe containing the geometry column and values to be mapped to a colorscale
+    # index_list - a sublist of list(gdf.index)  or gdf.index  for all data
+    # level - int that gives the level in the shapefile
+    # tolerance - float parameter to set the Polygon/MultiPolygon degree of simplification
+    
+    # returns a geojson type dict 
+   
+    geo_names = index_list
+    geojson = {'type': 'FeatureCollection', 'features': []}
+    for idx,index in enumerate(index_list):
+        #print(gdf.index)
+        #print(index)
+        geo = gdf['geometry'].loc[index]
+        
+        #print(geo.boundary)
+        if isinstance(geo.boundary, LineString):
+            gtype = 'Polygon'
+            bcoords = np.dstack(geo.boundary.coords.xy).tolist()
+    
+        elif isinstance(geo.boundary, MultiLineString):
+            gtype = 'MultiPolygon'
+            bcoords = []
+            for b in geo.boundary:
+                x, y = b.coords.xy
+                coords = np.dstack((x,y)).tolist() 
+                bcoords.append(coords) 
+#         else: pass
+        
+        
+       
+        feature = {'type': 'Feature', 
+                   'id' : index,
+                   'properties': {'name': geo_names[idx]},
+                   'geometry': {'type': gtype,
+                                'coordinates': bcoords},
+                    }
+                                
+        geojson['features'].append(feature)
+    return geojson
+###
+#%%
 
-#not appearing in vscode
-map_with_tiles
+zips_temp = zips.set_index('ZIPCODE')
+
+zips_geo = shapefile_to_geojson(zips_temp, index_list = zips_temp.index)
+#%%
+
+fig= choropleth_mapbox(data_frame = zip_units,
+                geojson =zips_geo,
+                  locations='delivery_zip_code',
+                  #animation_frame = 'datetime',
+                  color='total',
+                  color_continuous_scale = px.colors.sequential.Viridis,
+                  #range_color = [0,1400],
+                  featureidkey='features.ZIPCODE',
+                  zoom =10,
+                  opacity = .6,
+                  center = {"lat": milwaukee_coords[0], "lon": milwaukee_coords[1]},
+                  mapbox_style = "carto-positron")
+##
+
+
+# %%
