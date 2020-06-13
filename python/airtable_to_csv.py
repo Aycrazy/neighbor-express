@@ -6,12 +6,14 @@ from datetime import timedelta
 import plotly.express as px
 import chart_studio.plotly as py
 import plotly.graph_objects as go
+import plotly.offline
 import numpy as np
 from shapely.geometry import LineString, MultiLineString
 from plotly.express import choropleth_mapbox
 import folium
 from airtable import Airtable
 import geopandas as gpd
+
 
 #%%
 #Changing drive to where control file/parameters file is held
@@ -136,16 +138,6 @@ fig_agency_bar_top5 = px.bar(agency_delivery_counts.sort_values('freq',ascending
 
 fig_agency_bar_top5.show()
 
-## Zip Units Bar
-
-data = go.Bar( x=zip_units.sort_values('total', ascending=False).head().zips, y=zip_units.sort_values('total', ascending=False).head().total)
-
-layout = go.Layout(xaxis=dict(type='category'))
-
-fig_zip_units_top5  = go.Figure(data=data, layout=layout)
-
-fig_zip_units_top5.show()
-
 #%%
 ### Map these things next
 zips = gpd.read_file('../zcta_zips/Zip_Code_Tabulation_Areas__ZCTA_.shp')
@@ -161,6 +153,17 @@ zips = zips.loc[1:zips.shape[0]-2]
 
 zips.ZIPCODE = zips.ZIPCODE.astype(int)
 
+
+
+## Zip Units Bar
+
+data = go.Bar( x=zip_units.sort_values('total', ascending=False).head().delivery_zip_code, y=zip_units.sort_values('total', ascending=False).head().total)
+
+layout = go.Layout(xaxis=dict(type='category'))
+
+fig_zip_units_top5  = go.Figure(data=data, layout=layout)
+
+fig_zip_units_top5.show()
 
 
 milwaukee_coords = [43.03, -87.88]
@@ -250,7 +253,7 @@ fig_deliveries= choropleth_mapbox(data_frame = zip_counts,
                 geojson =zips_geo,
                   locations='delivery_zip_code',
                   #animation_frame = 'datetime',
-                  color='total',
+                  color='freq',
                   color_continuous_scale = px.colors.sequential.Viridis,
                   #range_color = [0,1400],
                   featureidkey='features.ZIPCODE',
@@ -276,5 +279,30 @@ fig_delivery_time= choropleth_mapbox(data_frame = zip_delivery_timedelta,
                   center = {"lat": milwaukee_coords[0], "lon": milwaukee_coords[1]},
                   mapbox_style = "carto-positron")
 
+fig_delivery_time.show()
+
+# %%
+
+# names = ['units','deliveries','delivery_times']
+
+# figs = [fig_units, fig_deliveries, fig_delivery_time]
+
+# for name,fig in zip(names,figs):
+#     fig.write_html(name+'.html')
+
+# # %%
+# def configure_plotly_browser_state():
+#     import IPython
+#     display(IPython.core.display.HTML('''
+#         <script src="/static/components/requirejs/require.js"></script>
+#         <script>
+#             requirejs.config({
+#             paths: {
+#                 base: '/static/base',
+#                 plotly: 'https://cdn.plot.ly/plotly-latest.min.js?noext',
+#             },
+#             });
+#         </script>
+#         '''))
 
 # %%
