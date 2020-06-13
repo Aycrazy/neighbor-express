@@ -1,6 +1,5 @@
 #%%
 import pandas as pd
-from airtable import Airtable
 import os
 import re
 from datetime import timedelta
@@ -11,6 +10,9 @@ import numpy as np
 from shapely.geometry import LineString, MultiLineString
 from plotly.express import choropleth_mapbox
 import folium
+from airtable import Airtable
+import geopandas as gpd
+
 #%%
 #Changing drive to where control file/parameters file is held
 #os.chdir(r'')
@@ -127,7 +129,8 @@ zip_delivery_timedelta = x[pd.notna(x.conversion_time)][['delivery_zip_code','co
     lambda x: x['conversion_time'].astype('timedelta64[s]').mean()).reset_index().rename(columns={0:'timedelta_avg'})
 
 #average length in days to zip -- wonder how accurate submission time as delivery is
-zip_delivery_timedelta['days'] = zip_delivery_timedelta['timedelta_avg'].apply(lambda x: timedelta(seconds=x))
+zip_delivery_timedelta['days'] = zip_delivery_timedelta['timedelta_avg'].apply(lambda x: round(x/86400,2))
+
 
 fig_agency_bar_top5 = px.bar(agency_delivery_counts.sort_values('freq',ascending=False).head(), x='agencyname',y='freq')
 
@@ -143,12 +146,16 @@ fig_zip_units_top5  = go.Figure(data=data, layout=layout)
 
 fig_zip_units_top5.show()
 
+#%%
 ### Map these things next
 zips = gpd.read_file('../zcta_zips/Zip_Code_Tabulation_Areas__ZCTA_.shp')
 
+
+#zips['delivery_zip_code'] = zips.ZCTA5CE10
+
 zips['delivery_zip_code'] = zips.ZIPCODE
 
-zips.to_file("zips.geojson", driver='GeoJSON')
+#zips.to_file("zips.geojson", driver='GeoJSON')
 
 zips = zips.loc[1:zips.shape[0]-2]
 
@@ -213,12 +220,33 @@ def shapefile_to_geojson(gdf, index_list, level = 1, tolerance=0.025):
 ###
 #%%
 
+
+
 zips_temp = zips.set_index('ZIPCODE')
 
 zips_geo = shapefile_to_geojson(zips_temp, index_list = zips_temp.index)
 #%%
 
-fig= choropleth_mapbox(data_frame = zip_units,
+fig_units= choropleth_mapbox(data_frame = zip_counts,
+                geojson =zips_geo,
+                  locations='delivery_zip_code',
+                  #animation_frame = 'datetime',
+                  color='freq',
+                  color_continuous_scale = px.colors.sequential.Viridis,
+                  #range_color = [0,1400],
+                  featureidkey='features.ZIPCODE',
+                  zoom =10,
+                  opacity = .6,
+                  center = {"lat": milwaukee_coords[0], "lon": milwaukee_coords[1]},
+                  mapbox_style = "carto-positron")
+##
+
+
+# %%
+fig_units.show()
+# %%
+
+fig_deliveries= choropleth_mapbox(data_frame = zip_counts,
                 geojson =zips_geo,
                   locations='delivery_zip_code',
                   #animation_frame = 'datetime',
@@ -230,7 +258,23 @@ fig= choropleth_mapbox(data_frame = zip_units,
                   opacity = .6,
                   center = {"lat": milwaukee_coords[0], "lon": milwaukee_coords[1]},
                   mapbox_style = "carto-positron")
-##
+
+fig_deliveries.show()
+
+#%%
+fig_delivery_time= choropleth_mapbox(data_frame = zip_delivery_timedelta,
+                geojson =zips_geo,
+                  locations='delivery_zip_code',
+                  #animation_frame = 'datetime',
+                  color='days',
+                  color_continuous_scale = px.colors.sequential.Viridis,
+                  #range_color = [0,1400],
+                  labels={'days':'Time in Days'},
+                  featureidkey='features.ZIPCODE',
+                  zoom =10,
+                  opacity = .6,
+                  center = {"lat": milwaukee_coords[0], "lon": milwaukee_coords[1]},
+                  mapbox_style = "carto-positron")
 
 
 # %%
